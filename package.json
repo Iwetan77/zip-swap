@@ -1,0 +1,60 @@
+{
+  "name": "zip-swap",
+  "version": "0.1.0",
+  "description": "Headless swap-routing SDK for Monad: any ERC-20 to USDC, quote + unsigned tx",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "zip-swap": "./dist/cli/zip-swap.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run test/unit",
+    "test:fork:adapters": "vitest run test/fork/adapters",
+    "test:fork": "vitest run test/fork",
+    "verify:registry": "tsx src/registry/verify.ts",
+    "cli": "tsx cli/zip-swap.ts"
+  },
+  "keywords": [
+    "monad",
+    "swap",
+    "dex",
+    "sdk",
+    "viem"
+  ],
+  "author": "iwetan",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsup": "^8.2.4",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "viem": "^2.21.0"
+  }
+}
