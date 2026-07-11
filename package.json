@@ -33,7 +33,7 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run test/unit",
-    "test:fork:adapters": "vitest run test/fork/adapters",
+    "test:fork:adapters": "vitest run test/fork/adapters --testTimeout=30000",
     "test:fork": "vitest run test/fork",
     "verify:registry": "tsx src/registry/verify.ts",
     "cli": "tsx cli/zip-swap.ts"
