@@ -11,8 +11,11 @@ export async function startAnvilFork(port: number): Promise<AnvilInstance> {
   const proc = spawn(
     "anvil",
     ["--fork-url", forkUrl, "--port", String(port), "--silent"],
-    { stdio: "ignore" },
+    { stdio: process.env.ANVIL_DEBUG ? "inherit" : "ignore" },
   );
+  proc.on("error", (err) => {
+    console.error("anvil spawn error:", err);
+  });
 
   const rpcUrl = `http://127.0.0.1:${port}`;
   const deadline = Date.now() + 20_000;

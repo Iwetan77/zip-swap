@@ -96,7 +96,7 @@ describe("UniV3Adapter fork verification (WMON -> USDC)", () => {
     const amountIn = parseEther("10");
 
     const depositHash = await walletClient.writeContract({
-      chain: undefined,
+      chain: null,
       address: WMON,
       abi: WMON_ABI,
       functionName: "deposit",
@@ -113,7 +113,7 @@ describe("UniV3Adapter fork verification (WMON -> USDC)", () => {
     const feeTier = (quote!.poolMeta as { feeTier: number }).feeTier;
 
     const approveHash = await walletClient.writeContract({
-      chain: undefined,
+      chain: null,
       address: WMON,
       abi: ERC20_ABI,
       functionName: "approve",
@@ -129,7 +129,7 @@ describe("UniV3Adapter fork verification (WMON -> USDC)", () => {
     });
 
     const swapHash = await walletClient.writeContract({
-      chain: undefined,
+      chain: null,
       address: SWAP_ROUTER_02,
       abi: SWAP_ROUTER_02_ABI,
       functionName: "exactInputSingle",

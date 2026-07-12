@@ -30,11 +30,13 @@
   },
   "scripts": {
     "build": "tsup",
+    "build:contracts": "cd contracts && forge build",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run test/unit",
     "test:fork:adapters": "vitest run test/fork/adapters --testTimeout=30000",
-    "test:fork": "vitest run test/fork",
+    "test:fork:safety": "vitest run test/fork/safety --testTimeout=60000 --no-file-parallelism",
+    "test:fork": "vitest run test/fork --testTimeout=60000 --no-file-parallelism",
     "verify:registry": "tsx src/registry/verify.ts",
     "cli": "tsx cli/zip-swap.ts"
   },
