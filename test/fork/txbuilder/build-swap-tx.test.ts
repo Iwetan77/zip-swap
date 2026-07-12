@@ -60,6 +60,7 @@ describe("buildSwapTx() — GATE 4", () => {
       config: { ...forkConfig, rpcUrl: anvil.rpcUrl },
     });
 
+    if ("chunks" in quote) throw new Error("expected a single Quote, got a ChunkedQuote");
     const tx = await buildSwapTx(quote, account.address, publicClient as any);
 
     expect(tx.simulatedOut).toBeGreaterThanOrEqual(tx.minOut);
@@ -95,6 +96,7 @@ describe("buildSwapTx() — GATE 4", () => {
     // eth_getStorageAt against slot0()'s decoded return) to force a stale
     // price instantly and deterministically. Crash whichever pool the
     // router actually picked for this quote's hop.
+    if ("chunks" in staleQuote) throw new Error("expected a single Quote, got a ChunkedQuote");
     const quotedPool = staleQuote.route.hops[0]!.pool;
     const slot0Before = (await (
       await fetch(anvil.rpcUrl, {

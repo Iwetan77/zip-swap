@@ -39,6 +39,7 @@ describe("getQuote() — GATE 3: 3 distinct real tokens -> USDC", () => {
       },
     });
 
+    if ("chunks" in quote) throw new Error("expected a single Quote, got a ChunkedQuote");
     expect(quote.tokenOut).toBe(USDC);
     expect(quote.expectedOut).toBeGreaterThan(0n);
     expect(quote.minOut).toBeLessThanOrEqual(quote.expectedOut);
