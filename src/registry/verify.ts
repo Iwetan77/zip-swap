@@ -68,6 +68,12 @@ async function main() {
   }
 
   for (const venue of VENUES.venues) {
+    if (!venue.capabilities || typeof venue.capabilities.supportsFeeOnTransfer !== "boolean") {
+      fail(`${venue.name} is missing a capabilities.supportsFeeOnTransfer entry`);
+    } else {
+      pass(`${venue.name} capabilities.supportsFeeOnTransfer = ${venue.capabilities.supportsFeeOnTransfer}`);
+    }
+
     for (const [name, contract] of Object.entries(venue.contracts)) {
       const addr = contract.address as Address;
       if (!(await hasCode(addr))) {
