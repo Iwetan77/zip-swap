@@ -8,7 +8,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { UniV3Adapter } from "../../../src/adapters/univ3.js";
-import { UnsafeTokenError } from "../../../src/errors.js";
+import { TaxUnawareAdapterError, UnsafeTokenError } from "../../../src/errors.js";
 import { classificationCache, getQuote, isSupported, type Registry } from "../../../src/quote.js";
 import VENUES from "../../../src/registry/VENUES.json" with { type: "json" };
 import { startAnvilFork, type AnvilInstance } from "../helpers/anvil.js";
@@ -231,16 +231,45 @@ describe("getQuote() safety gate — honeypot/FOT rejection at quote time", () =
     ).rejects.toThrow(UnsafeTokenError);
   }, 60_000);
 
-  it("(3) capability flag is live: flipping supportsFeeOnTransfer changes the outcome for the same 0.5%-tax token", async () => {
+  it("(3) capability flag alone is not sufficient: flipping supportsFeeOnTransfer without a tax-aware adapter still refuses, loudly and typed", async () => {
+    // NOTE — this assertion is DESIGNED to fail the day a tax-aware adapter
+    // (quotesNetOfTax: true) is added and wired into buildAdapters/VENUES.json.
+    // Whoever adds one must consciously replace this with a real net-of-tax
+    // assertion (quoted expectedOut within tolerance of the untaxed quote ×
+    // (1 - transferTaxBps/10000)), not just relax it back to `> 0n`.
     const enabledRegistry = withFotCapability(true);
-    const quote = await getQuote({
-      tokenIn: fot0_5PctToken,
+    await expect(
+      getQuote({
+        tokenIn: fot0_5PctToken,
+        amountIn: parseUnits("0.0001", 18),
+        config: forkConfig(anvil.rpcUrl),
+        registry: enabledRegistry,
+      }),
+    ).rejects.toThrow(TaxUnawareAdapterError);
+
+    try {
+      await getQuote({
+        tokenIn: fot0_5PctToken,
+        amountIn: parseUnits("0.0001", 18),
+        config: forkConfig(anvil.rpcUrl),
+        registry: enabledRegistry,
+      });
+      expect.unreachable("expected getQuote to throw TaxUnawareAdapterError");
+    } catch (error) {
+      expect(String((error as Error).message)).toMatch(/uniswap-v3/);
+      expect(String((error as Error).message)).toMatch(/50bps/);
+    }
+
+    // Zero-tax tokens are unaffected by the guard even under the same capable registry.
+    const zeroTaxQuote = await getQuote({
+      tokenIn: WMON,
       amountIn: parseUnits("0.0001", 18),
       config: forkConfig(anvil.rpcUrl),
       registry: enabledRegistry,
     });
-    if ("chunks" in quote) throw new Error("expected a single Quote");
-    expect(quote.expectedOut).toBeGreaterThan(0n);
+    if ("chunks" in zeroTaxQuote) throw new Error("expected a single Quote");
+    expect(zeroTaxQuote.minOut).toBeGreaterThan(0n);
+    expect(zeroTaxQuote.route.hops.length).toBeGreaterThanOrEqual(1);
 
     const disabledRegistry = withFotCapability(false);
     await expect(
@@ -254,21 +283,25 @@ describe("getQuote() safety gate — honeypot/FOT rejection at quote time", () =
   }, 60_000);
 
   it("(5) isSupported agrees with getQuote for normal/honeypot/FOT tokens", async () => {
-    const cases: Array<{ label: string; token: Address }> = [
+    const cases: Array<{ label: string; token: Address; registry?: Registry }> = [
       { label: "normal (WMON)", token: WMON },
       { label: "honeypot", token: honeypotToken },
       { label: "5%-FOT", token: fot5PctToken },
+      // Same guard as getQuote: a capable-registry flag isn't enough without
+      // a tax-aware adapter, so this must be false too, not true.
+      { label: "0.5%-FOT under capable registry", token: fot0_5PctToken, registry: withFotCapability(true) },
     ];
 
-    for (const { token } of cases) {
+    for (const { token, registry } of cases) {
       const config = forkConfig(anvil.rpcUrl);
+      const registryOpt = registry ? { registry } : {};
       let threw = false;
       try {
-        await getQuote({ tokenIn: token, amountIn: parseUnits("0.0001", 18), config });
+        await getQuote({ tokenIn: token, amountIn: parseUnits("0.0001", 18), config, ...registryOpt });
       } catch {
         threw = true;
       }
-      const supported = await isSupported(token, { config });
+      const supported = await isSupported(token, { config, ...registryOpt });
       expect(supported).toBe(!threw);
     }
   }, 60_000);

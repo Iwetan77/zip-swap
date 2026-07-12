@@ -16,6 +16,8 @@ export interface AdapterQuote {
 
 export interface VenueAdapter {
   name: string;
+  /** True iff this adapter's quoted expectedOut already accounts for the input token's transfer tax. A venue flagged supportsFeeOnTransfer whose adapter still quotes false here means routing must refuse taxed tokens through it — see quote.ts's TaxUnawareAdapterError guard. */
+  quotesNetOfTax: boolean;
   /** Returns null (never throws) when this venue has no path for the pair. */
   getQuote(
     tokenIn: Address,

@@ -39,7 +39,7 @@ if ("chunks" in quote) {
 }
 ```
 
-Before routing, `getQuote` classifies `tokenIn` on-chain (cached per tier's TTL) and rejects unsafe tokens with a typed `UnsafeTokenError` instead of ever returning a quote for them: `blocked` tokens (honeypots, unreadable ERC-20s) always throw, and fee-on-transfer tokens throw too unless some registered venue actually supports taxed transfers — none do today, since Uniswap V3's swap/mint callbacks require the pool to receive the *exact* declared input amount, which a taxed transfer can never deliver.
+Before routing, `getQuote` classifies `tokenIn` on-chain (cached per tier's TTL) and rejects unsafe tokens with a typed `UnsafeTokenError` instead of ever returning a quote for them: `blocked` tokens (honeypots, unreadable ERC-20s) always throw, and fee-on-transfer tokens throw too unless some registered venue actually supports taxed transfers — none do today, since Uniswap V3's swap/mint callbacks require the pool to receive the *exact* declared input amount, which a taxed transfer can never deliver. Flipping a venue's `supportsFeeOnTransfer` flag is necessary but not sufficient: its adapter must also declare `quotesNetOfTax: true`, and until one does, zip-swap refuses fee-on-transfer tokens on that venue with a typed `TaxUnawareAdapterError` rather than silently quoting them at their untaxed (overstated) value.
 
 The 3-call flow for a full swap:
 
@@ -70,7 +70,7 @@ if (!("chunks" in quote)) {
 | `classify({ client, token, usdc, factory, quoterV2, connectors? })` | Sell-side safety check via state-override simulation. Finds a live pool for `token` (direct to USDC, or via a connector if none exists) and returns a tier (`stable`/`major`/`standard`/`degen`/`blocked`) plus detected transfer tax. `getQuote`/`isSupported` call this automatically — most callers never need it directly. |
 | `listVenues()` / `isSupported(token)` | Introspection helpers. |
 
-All monetary amounts are `bigint` in the token's native decimals. All errors are typed subclasses of `ZipSwapError` (see `src/errors.ts`): `NoRouteError`, `PriceImpactExceededError`, `StaleQuoteError`, `SlippageExceededError`, `UnsafeTokenError`, `ChainIdMismatchError`.
+All monetary amounts are `bigint` in the token's native decimals. All errors are typed subclasses of `ZipSwapError` (see `src/errors.ts`): `NoRouteError`, `PriceImpactExceededError`, `StaleQuoteError`, `SlippageExceededError`, `UnsafeTokenError`, `TaxUnawareAdapterError`, `ChainIdMismatchError`.
 
 ### Configuration
 

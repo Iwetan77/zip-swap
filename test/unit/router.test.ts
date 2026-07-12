@@ -27,6 +27,7 @@ function quote(overrides: Partial<AdapterQuote> & Pick<AdapterQuote, "venue">): 
 function mockAdapter(name: string, table: Record<string, AdapterQuote | null>): VenueAdapter {
   return {
     name,
+    quotesNetOfTax: false,
     async getQuote(tokenIn, tokenOut) {
       return table[`${tokenIn}>${tokenOut}`] ?? null;
     },

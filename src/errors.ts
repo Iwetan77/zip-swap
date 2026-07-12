@@ -39,6 +39,14 @@ export class UnsafeTokenError extends ZipSwapError {
   }
 }
 
+export class TaxUnawareAdapterError extends ZipSwapError {
+  constructor(adapterName: string, transferTaxBps: number) {
+    super(
+      `venue claims fee-on-transfer support but adapter '${adapterName}' does not quote net of tax — quote would overstate output by ~${transferTaxBps}bps`,
+    );
+  }
+}
+
 export class ChainIdMismatchError extends ZipSwapError {
   constructor(expected: number, actual: number) {
     super(`chain id mismatch: configured ${expected}, RPC reports ${actual}`);

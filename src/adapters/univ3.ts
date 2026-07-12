@@ -96,6 +96,8 @@ function computePriceImpactBps(
 
 export class UniV3Adapter implements VenueAdapter {
   readonly name = "uniswap-v3";
+  /** QuoterV2 quotes the declared amountIn as-is; it has no knowledge of transfer taxes. */
+  readonly quotesNetOfTax = false;
 
   constructor(
     private readonly client: PublicClient,

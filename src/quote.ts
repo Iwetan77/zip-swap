@@ -3,7 +3,7 @@ import { UniV3Adapter } from "./adapters/univ3.js";
 import type { VenueAdapter } from "./adapters/adapter.js";
 import { assertChainId, createClient, loadConfig } from "./config.js";
 import { planChunks } from "./chunker.js";
-import { PriceImpactExceededError, UnsafeTokenError } from "./errors.js";
+import { PriceImpactExceededError, TaxUnawareAdapterError, UnsafeTokenError } from "./errors.js";
 import { computeDeadline, computeMinOut } from "./math.js";
 import { findBestRoute } from "./router.js";
 import { assertSafe, classify, ClassificationCache, type ClassificationResult } from "./safety.js";
@@ -86,6 +86,24 @@ async function assertQuotable(
   return classification;
 }
 
+/**
+ * Guards the FOT-allowed branch: a venue can declare supportsFeeOnTransfer,
+ * but that only means *some* adapter for it might quote net of tax — it
+ * doesn't mean the one that actually won this route does. Flipping the
+ * capability flag without a tax-aware adapter must fail loudly here rather
+ * than silently overstating expectedOut for a taxed token. No-op for
+ * zero-tax tokens.
+ */
+function assertTaxAwareRoute(route: Route, adapters: VenueAdapter[], transferTaxBps: number): void {
+  if (transferTaxBps <= 0) return;
+  for (const hop of route.hops) {
+    const adapter = adapters.find((a) => a.name === hop.venue);
+    if (adapter && !adapter.quotesNetOfTax) {
+      throw new TaxUnawareAdapterError(adapter.name, transferTaxBps);
+    }
+  }
+}
+
 function toQuote(
   route: Route,
   tokenIn: Address,
@@ -141,10 +159,12 @@ export async function getQuote(params: GetQuoteParams): Promise<Quote | ChunkedQ
 
   const isUsdcItself = isSameAddress(params.tokenIn, config.usdc);
   let tier: Exclude<TokenTier, "blocked"> = "stable";
+  let transferTaxBps = 0;
 
   if (!isUsdcItself) {
     const classification = await assertQuotable(client, params.tokenIn, config, registry);
     tier = classification.tier as Exclude<TokenTier, "blocked">;
+    transferTaxBps = classification.transferTaxBps;
   }
 
   const adapters = buildAdapters(client, registry);
@@ -161,11 +181,15 @@ export async function getQuote(params: GetQuoteParams): Promise<Quote | ChunkedQ
 
   try {
     const route = await findBestRoute({ ...routeParams, amountIn: params.amountIn });
+    assertTaxAwareRoute(route, adapters, transferTaxBps);
     return toQuote(route, params.tokenIn, config, params.amountIn, slippageBps, quotedAtBlock, tier);
   } catch (error) {
     if (!(error instanceof PriceImpactExceededError)) throw error;
 
     const plan = await planChunks({ ...routeParams, totalAmountIn: params.amountIn });
+    for (const chunkRoute of plan.routes) {
+      assertTaxAwareRoute(chunkRoute, adapters, transferTaxBps);
+    }
     const chunks = plan.routes.map((route, i) =>
       toQuote(route, params.tokenIn, config, plan.amounts[i]!, slippageBps, quotedAtBlock, tier),
     );
@@ -204,11 +228,13 @@ export async function isSupported(token: Address, params: IsSupportedParams = {}
 
   try {
     await assertChainId(client, config);
+    let transferTaxBps = 0;
     if (!isSameAddress(token, config.usdc)) {
-      await assertQuotable(client, token, config, registry);
+      const classification = await assertQuotable(client, token, config, registry);
+      transferTaxBps = classification.transferTaxBps;
     }
     const adapters = buildAdapters(client, registry);
-    await findBestRoute({
+    const route = await findBestRoute({
       tokenIn: token,
       tokenOut: config.usdc,
       amountIn: PROBE_AMOUNT,
@@ -216,6 +242,7 @@ export async function isSupported(token: Address, params: IsSupportedParams = {}
       connectors: config.connectors,
       maxPriceImpactBps: config.maxPriceImpactBps,
     });
+    assertTaxAwareRoute(route, adapters, transferTaxBps);
     return true;
   } catch (error) {
     if (error instanceof PriceImpactExceededError) return true; // a route exists, just not at this probe size
