@@ -32,6 +32,19 @@ Verified pools (`factory.getPool` recognizes them, and they hold non-zero liquid
 
 The 0.05% fee tier (100) pool does not exist for this pair (`getPool` reverts).
 
+**WETH** — `0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242`
+**WBTC** — `0x0555E30da8f98308EdB960aa94C0Db47230d2B9c`
+**USDT0** — `0xe7cd86e13AC4309349F30B3435a9d337750fC82D` (symbol reads `USDT` on-chain)
+
+All three candidate addresses were sourced from the community token list at `github.com/monad-crypto/token-list` — a lead, not evidence — then independently confirmed via `eth_call symbol()`/`decimals()` and `factory.getPool(...)` + `pool.liquidity()` returning non-zero:
+- WETH/USDC, 0.3% fee tier → pool `0x25ef1a210ff55bcee9f8fee979aaff6bd1be5bf1`, `liquidity()` ≈ 2.8e15 (the 0.05% pool exists but has zero liquidity — not used)
+- WBTC/USDC, 0.3% fee tier → pool `0xb0b083e0353f7df4d5ee1c812ea8c6960c080373`, `liquidity()` ≈ 3.7e8
+- USDT0/USDC, 0.05% fee tier → pool `0xa00d8ec3c0cc20e93cad749695392a0b61fe8ca3`, `liquidity()` ≈ 1.97e11
+
+These three were added during Phase 3 specifically to give the router's fork gate ("3 distinct real tokens → USDC") real, independently-verified tokens to route rather than reusing WMON three times.
+
+**Bug found and fixed while adding these**: `src/registry/verify.ts`'s pool-check loop had hardcoded `VENUES.tokens.WMON` for every `verifiedPools` entry instead of parsing the actual pair from `poolInfo.pair`. It silently passed GATE 0 before because every existing pool happened to be a WMON pair — adding a WETH pair immediately produced mismatched `factory.getPool` results, exposing it. Fixed to look up both token symbols from the pair string.
+
 ## Candidates identified but NOT yet verified (do not use until verified)
 
 Search surfaced two other venues repeatedly cited as live on Monad:

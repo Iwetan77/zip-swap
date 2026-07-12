@@ -79,10 +79,17 @@ async function main() {
 
     for (const poolInfo of venue.verifiedPools) {
       const factory = venue.contracts.factory.address as Address;
-      const wmon = VENUES.tokens.WMON.address as Address;
-      const usdc = VENUES.tokens.USDC.address as Address;
+      const [tokenASymbol, tokenBSymbol] = poolInfo.pair.split("/");
+      const tokenA = (VENUES.tokens as Record<string, { address: string }>)[tokenASymbol!]
+        ?.address as Address;
+      const tokenB = (VENUES.tokens as Record<string, { address: string }>)[tokenBSymbol!]
+        ?.address as Address;
+      if (!tokenA || !tokenB) {
+        fail(`${venue.name} pool entry "${poolInfo.pair}" references an unknown token symbol`);
+        continue;
+      }
       const feeHex = poolInfo.feeTier.toString(16).padStart(64, "0");
-      const data = `0x1698ee82${wmon.slice(2).padStart(64, "0").toLowerCase()}${usdc
+      const data = `0x1698ee82${tokenA.slice(2).padStart(64, "0").toLowerCase()}${tokenB
         .slice(2)
         .padStart(64, "0")
         .toLowerCase()}${feeHex}` as `0x${string}`;

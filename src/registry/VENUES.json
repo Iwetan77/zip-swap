@@ -15,6 +15,27 @@
       "symbol": "WMON",
       "verificationMethod": "eth_getCode + confirmed as token0 in verified UniswapV3 WMON/USDC pool",
       "evidence": "eth_getCode returned non-empty bytecode (6501 bytes); token0() on pool 0x659bd0bc4167ba25c62e05656f78043e7ed4a9da returned this address"
+    },
+    "WETH": {
+      "address": "0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242",
+      "decimals": 18,
+      "symbol": "WETH",
+      "verificationMethod": "eth_call symbol()/decimals() + factory.getPool(WETH,USDC,3000) + pool.liquidity()",
+      "evidence": "symbol() ABI-decodes to 'WETH'; decimals() returned 18; factory.getPool returned pool 0x25ef1a210ff55bcee9f8fee979aaff6bd1be5bf1 (non-zero); pool.liquidity() returned 0xa1d55c888c445 (non-zero). Candidate address sourced from community token-list (github.com/monad-crypto/token-list), verified independently on-chain, not trusted as-is."
+    },
+    "WBTC": {
+      "address": "0x0555E30da8f98308EdB960aa94C0Db47230d2B9c",
+      "decimals": 8,
+      "symbol": "WBTC",
+      "verificationMethod": "eth_call symbol()/decimals() + factory.getPool(WBTC,USDC,3000) + pool.liquidity()",
+      "evidence": "symbol() ABI-decodes to 'WBTC'; decimals() returned 8; factory.getPool returned pool 0xb0b083e0353f7df4d5ee1c812ea8c6960c080373 (non-zero); pool.liquidity() returned 0x162ac4e0 (non-zero). Candidate address sourced from community token-list, verified independently on-chain, not trusted as-is."
+    },
+    "USDT0": {
+      "address": "0xe7cd86e13AC4309349F30B3435a9d337750fC82D",
+      "decimals": 6,
+      "symbol": "USDT",
+      "verificationMethod": "eth_call symbol()/decimals() + factory.getPool(USDT0,USDC,500) + pool.liquidity()",
+      "evidence": "symbol() ABI-decodes to 'USDT'; decimals() returned 6; factory.getPool returned pool 0xa00d8ec3c0cc20e93cad749695392a0b61fe8ca3 (non-zero); pool.liquidity() returned 0x2dd029c20b (non-zero). Candidate address sourced from community token-list, verified independently on-chain, not trusted as-is."
     }
   },
   "venues": [
@@ -78,6 +99,27 @@
           "pool": "0xc33e9e441e6f4e74cdb34f878be51189c9cb00d8",
           "verificationMethod": "factory.getPool(WMON, USDC, 10000) eth_call",
           "evidence": "factory.getPool returned this pool address (non-zero); liquidity not separately checked, secondary pool for this pair"
+        },
+        {
+          "pair": "WETH/USDC",
+          "feeTier": 3000,
+          "pool": "0x25ef1a210ff55bcee9f8fee979aaff6bd1be5bf1",
+          "verificationMethod": "factory.getPool(WETH, USDC, 3000) eth_call, then pool.liquidity() eth_call",
+          "evidence": "factory.getPool returned this pool address (non-zero); pool.liquidity() returned 0xa1d55c888c445 (non-zero). Note: fee=500 pool exists (0x6d47fb8f7d437211614a9055701e2726c2c96e47) but has zero liquidity."
+        },
+        {
+          "pair": "WBTC/USDC",
+          "feeTier": 3000,
+          "pool": "0xb0b083e0353f7df4d5ee1c812ea8c6960c080373",
+          "verificationMethod": "factory.getPool(WBTC, USDC, 3000) eth_call, then pool.liquidity() eth_call",
+          "evidence": "factory.getPool returned this pool address (non-zero); pool.liquidity() returned 0x162ac4e0 (non-zero)"
+        },
+        {
+          "pair": "USDT0/USDC",
+          "feeTier": 500,
+          "pool": "0xa00d8ec3c0cc20e93cad749695392a0b61fe8ca3",
+          "verificationMethod": "factory.getPool(USDT0, USDC, 500) eth_call, then pool.liquidity() eth_call",
+          "evidence": "factory.getPool returned this pool address (non-zero); pool.liquidity() returned 0x2dd029c20b (non-zero)"
         }
       ]
     }
