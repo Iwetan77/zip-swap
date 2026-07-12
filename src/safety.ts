@@ -6,12 +6,13 @@ import {
   type Address,
   type PublicClient,
 } from "viem";
+import { UniV3Adapter } from "./adapters/univ3.js";
 import { UnsafeTokenError } from "./errors.js";
 import type { TokenTier } from "./types.js";
 import SIMULATOR_ARTIFACT from "../contracts/out/Simulator.sol/Simulator.json" with { type: "json" };
 
 const SIMULATOR_ADDRESS: Address = pad("0x513131", { size: 20 });
-const MAX_PROBE_SLOTS = 20;
+const MAX_PROBE_SLOTS = 60; // covers common OZ-upgradeable storage gaps, not just simple non-upgradeable layouts
 export const PROBE_AMOUNT = 1_000_000_000_000_000_000n; // 1e18, decimals-agnostic probe unit
 const SELL_DEVIATION_TOLERANCE_BPS = 200n; // 2%, per project spec
 
@@ -116,27 +117,28 @@ function toStateDiff(overrides: Record<string, `0x${string}`>) {
   return Object.entries(overrides).map(([slot, value]) => ({ slot: slot as `0x${string}`, value }));
 }
 
-async function findBalanceSlot(
-  client: PublicClient,
-  token: Address,
-): Promise<number | null> {
-  for (let slot = 0; slot < MAX_PROBE_SLOTS; slot++) {
-    const result = await client
-      .readContract({
-        address: SIMULATOR_ADDRESS,
-        abi: SIMULATOR_ABI,
-        functionName: "probeBalance",
-        args: [token, PROBE_AMOUNT],
-        stateOverride: [
-          { address: SIMULATOR_ADDRESS, code: SIMULATOR_CODE },
-          { address: token, stateDiff: toStateDiff(balanceSlotOverride(SIMULATOR_ADDRESS, slot, PROBE_AMOUNT)) },
-        ],
-      })
-      .catch(() => null);
+async function probeSlot(client: PublicClient, token: Address, slot: number): Promise<number | null> {
+  const result = await client
+    .readContract({
+      address: SIMULATOR_ADDRESS,
+      abi: SIMULATOR_ABI,
+      functionName: "probeBalance",
+      args: [token, PROBE_AMOUNT],
+      stateOverride: [
+        { address: SIMULATOR_ADDRESS, code: SIMULATOR_CODE },
+        { address: token, stateDiff: toStateDiff(balanceSlotOverride(SIMULATOR_ADDRESS, slot, PROBE_AMOUNT)) },
+      ],
+    })
+    .catch(() => null);
+  return result?.[0] === true ? slot : null;
+}
 
-    if (result?.[0] === true) return slot;
-  }
-  return null;
+/** Probes all candidate slots concurrently — sequential round-trips against a real (non-local) RPC made this time out well before exhausting a useful slot range. */
+async function findBalanceSlot(client: PublicClient, token: Address): Promise<number | null> {
+  const slots = Array.from({ length: MAX_PROBE_SLOTS }, (_, i) => i);
+  const results = await Promise.all(slots.map((slot) => probeSlot(client, token, slot)));
+  const found = results.find((slot) => slot !== null);
+  return found ?? null;
 }
 
 export interface ClassificationResult {
@@ -153,9 +155,47 @@ export interface ClassifyParams {
   client: PublicClient;
   token: Address;
   usdc: Address;
-  pool: Address;
+  factory: Address;
   quoterV2: Address;
+  /** Connector tokens (e.g. WMON) to fall back to when `token` has no direct USDC pool — mirrors router.ts's own 1-hop search so a connector-only token isn't blocked for lack of a pool that was never going to exist. */
+  connectors?: Address[];
+}
+
+interface SellTarget {
+  pool: Address;
   poolFee: number;
+  targetToken: Address;
+}
+
+/** Finds a live pool to probe sell-ability against: token->usdc directly, else token->connector for each connector, first match wins. */
+async function findSellTarget(
+  client: PublicClient,
+  token: Address,
+  usdc: Address,
+  factory: Address,
+  quoterV2: Address,
+  connectors: Address[],
+): Promise<SellTarget | null> {
+  const adapter = new UniV3Adapter(client, factory, quoterV2);
+
+  const direct = await adapter.getQuote(token, usdc, PROBE_AMOUNT);
+  if (direct) {
+    return { pool: direct.pool, poolFee: (direct.poolMeta as { feeTier: number }).feeTier, targetToken: usdc };
+  }
+
+  for (const connector of connectors) {
+    if (connector.toLowerCase() === token.toLowerCase()) continue;
+    const viaConnector = await adapter.getQuote(token, connector, PROBE_AMOUNT);
+    if (viaConnector) {
+      return {
+        pool: viaConnector.pool,
+        poolFee: (viaConnector.poolMeta as { feeTier: number }).feeTier,
+        targetToken: connector,
+      };
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -172,7 +212,7 @@ export interface ClassifyParams {
  * projection over the tax-adjusted net amount (catches output deviation).
  */
 export async function classify(params: ClassifyParams): Promise<ClassificationResult> {
-  const { client, token, usdc, pool, quoterV2, poolFee } = params;
+  const { client, token, usdc, factory, quoterV2, connectors = [] } = params;
   const classifiedAtBlock = await client.getBlockNumber();
 
   const readable = await Promise.all([
@@ -216,12 +256,22 @@ export async function classify(params: ClassifyParams): Promise<ClassificationRe
   const [sent, received] = taxResult.result;
   const transferTaxBps = sent > 0n ? Number(((sent - received) * 10_000n) / sent) : 0;
 
+  const target = await findSellTarget(client, token, usdc, factory, quoterV2, connectors);
+  if (!target) {
+    return {
+      tier: "blocked",
+      transferTaxBps,
+      reason: "no live pool found for sell-side probing (no direct USDC pool or connector pool)",
+      classifiedAtBlock,
+    };
+  }
+
   const sellProbe = await client
     .simulateContract({
       address: SIMULATOR_ADDRESS,
       abi: SIMULATOR_ABI,
       functionName: "probeTransferToPool",
-      args: [token, pool, PROBE_AMOUNT / 2n],
+      args: [token, target.pool, PROBE_AMOUNT / 2n],
       stateOverride,
     })
     .catch((error: Error) => ({ error }));
@@ -236,7 +286,9 @@ export async function classify(params: ClassifyParams): Promise<ClassificationRe
       address: quoterV2,
       abi: QUOTER_V2_ABI,
       functionName: "quoteExactInputSingle",
-      args: [{ tokenIn: token, tokenOut: usdc, amountIn: netAmountIn, fee: poolFee, sqrtPriceLimitX96: 0n }],
+      args: [
+        { tokenIn: token, tokenOut: target.targetToken, amountIn: netAmountIn, fee: target.poolFee, sqrtPriceLimitX96: 0n },
+      ],
     })
     .catch((error: Error) => ({ error }));
 

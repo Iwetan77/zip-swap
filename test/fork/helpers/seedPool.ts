@@ -129,9 +129,47 @@ const MAX_TICK = 887272;
 export const FULL_RANGE_TICK_LOWER = Math.ceil(MIN_TICK / TICK_SPACING) * TICK_SPACING;
 export const FULL_RANGE_TICK_UPPER = Math.floor(MAX_TICK / TICK_SPACING) * TICK_SPACING;
 
-/** Raw 1:1 price (ignores the 18-vs-6 decimals gap) — fine for a disposable test pool. */
-function sqrtPriceX96For18Vs6Decimals(_mockIsToken0: boolean): bigint {
-  return 2n ** 96n;
+const DECIMALS_ABI = [
+  {
+    name: "decimals",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint8" }],
+  },
+] as const;
+
+/**
+ * Decimals-aware 1:1 *human* price (1 tokenA = 1 tokenB), computed from each
+ * token's real on-chain decimals() rather than an assumed pairing. A
+ * non-decimals-adjusted 1:1 raw price looks fine at pool-creation time but
+ * makes the pool's nominal price wildly inconsistent with its actual
+ * deposited reserves whenever the two tokens' decimals differ — every
+ * subsequent swap then shows near-100% "price impact" (or, worse, silently
+ * rounds every output to near-zero) against that bogus reference price,
+ * regardless of trade size. Only exact when the decimals difference is even
+ * (true for every pairing this test suite actually uses: 18-vs-6, 18-vs-18).
+ */
+async function computeSqrtPriceX96OneToOne(
+  publicClient: PublicClient,
+  tokenA: Address,
+  tokenB: Address,
+  aIsToken0: boolean,
+): Promise<bigint> {
+  const [decimalsA, decimalsB] = await Promise.all([
+    publicClient.readContract({ address: tokenA, abi: DECIMALS_ABI, functionName: "decimals" }),
+    publicClient.readContract({ address: tokenB, abi: DECIMALS_ABI, functionName: "decimals" }),
+  ]);
+  const decimals0 = aIsToken0 ? decimalsA : decimalsB;
+  const decimals1 = aIsToken0 ? decimalsB : decimalsA;
+  const diff = decimals1 - decimals0;
+  if (diff % 2 !== 0) {
+    throw new Error(`computeSqrtPriceX96OneToOne: unsupported odd decimals difference ${diff}`);
+  }
+  const Q96 = 2n ** 96n;
+  const halfDiff = diff / 2;
+  if (halfDiff === 0) return Q96;
+  return halfDiff > 0 ? Q96 * 10n ** BigInt(halfDiff) : Q96 / 10n ** BigInt(-halfDiff);
 }
 
 async function anvilRpc(rpcUrl: string, method: string, params: unknown[]) {
@@ -166,7 +204,12 @@ export async function fundUsdcFromWhale(
     functionName: "transfer",
     args: [recipient, amount],
   });
-  await publicClient.waitForTransactionReceipt({ hash });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") {
+    throw new Error(
+      `fundUsdcFromWhale: transfer of ${amount} reverted — whale ${whale} likely holds less than requested`,
+    );
+  }
   await anvilRpc(rpcUrl, "anvil_stopImpersonatingAccount", [whale]);
 }
 
@@ -205,7 +248,7 @@ export async function createAndSeedPool(params: SeedPoolParams): Promise<SeededP
   const token0 = mockIsToken0 ? mockToken : usdc;
   const token1 = mockIsToken0 ? usdc : mockToken;
 
-  const sqrtPriceX96 = sqrtPriceX96For18Vs6Decimals(mockIsToken0);
+  const sqrtPriceX96 = await computeSqrtPriceX96OneToOne(publicClient, mockToken, usdc, mockIsToken0);
   const createHash = await walletClient.writeContract({
     chain: null,
     account: deployer,

@@ -92,7 +92,7 @@ describe("full E2E flow — GATE 5", () => {
 
   beforeAll(async () => {
     anvil = await startAnvilFork(8563);
-  }, 30_000);
+  }, 180_000);
 
   afterAll(() => {
     anvil?.stop();
@@ -165,7 +165,7 @@ describe("full E2E flow — GATE 5", () => {
     });
     expect(usdcAfter2 - usdcBefore2).toBe(receipt2.amountOut);
     expect(receipt2.amountOut).toBeGreaterThanOrEqual(mockQuote.minOut);
-  }, 60_000);
+  }, 180_000);
 
   it("(b) an order exceeding the impact ceiling returns a ChunkedQuote and executes all chunks", async () => {
     const publicClient = createPublicClient({ transport: http(anvil.rpcUrl) });
@@ -212,7 +212,7 @@ describe("full E2E flow — GATE 5", () => {
     // current minOut; this just double-checks the aggregate is sane.
     expect(result.totalUsdcOut).toBeGreaterThan(0n);
     expect(result.receipts).toHaveLength(quote.chunks.length);
-  }, 60_000);
+  }, 180_000);
 
   it("(c) sabotaging the pool mid-sequence aborts cleanly with honest partial accounting", async () => {
     const publicClient = createPublicClient({ transport: http(anvil.rpcUrl) });
@@ -271,5 +271,5 @@ describe("full E2E flow — GATE 5", () => {
     // that would have landed below its (re-quoted, current) minOut is ever
     // in this array.
     expect(result.receipts).toHaveLength(result.executedChunks);
-  }, 60_000);
+  }, 180_000);
 });

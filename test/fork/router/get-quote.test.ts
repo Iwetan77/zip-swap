@@ -14,7 +14,7 @@ describe("getQuote() — GATE 3: 3 distinct real tokens -> USDC", () => {
 
   beforeAll(async () => {
     anvil = await startAnvilFork(8558);
-  }, 30_000);
+  }, 90_000);
 
   afterAll(() => {
     anvil?.stop();
@@ -46,5 +46,7 @@ describe("getQuote() — GATE 3: 3 distinct real tokens -> USDC", () => {
     expect(quote.minOut).toBeGreaterThan(0n);
     expect(quote.route.hops.length).toBeGreaterThanOrEqual(1);
     expect(quote.deadline).toBeGreaterThan(BigInt(Math.floor(Date.now() / 1000)));
-  }, 30_000);
+    expect(quote.tier).toBeDefined();
+    expect(quote.tier).not.toBe("blocked");
+  }, 90_000);
 });

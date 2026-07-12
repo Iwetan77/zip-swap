@@ -4,6 +4,7 @@ import { classify, PROBE_AMOUNT } from "../../../src/safety.js";
 import VENUES from "../../../src/registry/VENUES.json" with { type: "json" };
 import { startAnvilFork, type AnvilInstance } from "../helpers/anvil.js";
 
+const FACTORY = VENUES.venues[0]!.contracts.factory.address as Address;
 const QUOTER_V2 = VENUES.venues[0]!.contracts.quoterV2.address as Address;
 const WMON = VENUES.tokens.WMON.address as Address;
 const USDC = VENUES.tokens.USDC.address as Address;
@@ -13,7 +14,7 @@ describe("classify() — GATE 2.5(a): normal token", () => {
 
   beforeAll(async () => {
     anvil = await startAnvilFork(8553);
-  }, 30_000);
+  }, 60_000);
 
   afterAll(() => {
     anvil?.stop();
@@ -30,15 +31,14 @@ describe("classify() — GATE 2.5(a): normal token", () => {
     );
     const quote = await adapter.getQuote(WMON, USDC, PROBE_AMOUNT);
     expect(quote).not.toBeNull();
-    const feeTier = (quote!.poolMeta as { feeTier: number }).feeTier;
 
     const result = await classify({
       client: publicClient,
       token: WMON,
       usdc: USDC,
-      pool: quote!.pool,
+      factory: FACTORY,
       quoterV2: QUOTER_V2,
-      poolFee: feeTier,
+      connectors: [],
     });
 
     expect(result.tier).not.toBe("blocked");
@@ -52,5 +52,5 @@ describe("classify() — GATE 2.5(a): normal token", () => {
     const diffBps = (diff * 10_000n) / claimed;
 
     expect(diffBps).toBeLessThanOrEqual(10n); // within 0.1%
-  }, 30_000);
+  }, 60_000);
 });

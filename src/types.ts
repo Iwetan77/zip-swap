@@ -38,6 +38,8 @@ export interface Quote {
   ttl: number;
   slippageBps: number;
   deadline: bigint;
+  /** Tier tokenIn was classified as — drives the default slippageBps/ttl above. Excludes "blocked": a blocked token never reaches a Quote. */
+  tier: Exclude<TokenTier, "blocked">;
 }
 
 export interface ChunkedQuote {

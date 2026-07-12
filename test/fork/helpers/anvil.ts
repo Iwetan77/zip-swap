@@ -18,7 +18,7 @@ export async function startAnvilFork(port: number): Promise<AnvilInstance> {
   });
 
   const rpcUrl = `http://127.0.0.1:${port}`;
-  const deadline = Date.now() + 20_000;
+  const deadline = Date.now() + 45_000; // public RPC fork-startup latency varies; give it real headroom
   while (Date.now() < deadline) {
     try {
       const res = await fetch(rpcUrl, {

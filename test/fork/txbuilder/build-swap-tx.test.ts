@@ -37,7 +37,7 @@ describe("buildSwapTx() — GATE 4", () => {
 
   beforeAll(async () => {
     anvil = await startAnvilFork(8559);
-  }, 30_000);
+  }, 60_000);
 
   afterAll(() => {
     anvil?.stop();
@@ -68,7 +68,7 @@ describe("buildSwapTx() — GATE 4", () => {
     expect(tx.prerequisites[0]!.to).toBe(WMON);
     expect(tx.to).toBe(SWAP_ROUTER_02);
     expect(tx.deadline).toBe(quote.deadline);
-  }, 30_000);
+  }, 60_000);
 
   it("(b) throws StaleQuoteError when the pool price moves after the quote was taken", async () => {
     const publicClient = createPublicClient({ transport: http(anvil.rpcUrl) });
@@ -129,5 +129,5 @@ describe("buildSwapTx() — GATE 4", () => {
     await expect(buildSwapTx(staleQuote, account.address, publicClient as any)).rejects.toThrow(
       StaleQuoteError,
     );
-  }, 30_000);
+  }, 60_000);
 });

@@ -37,7 +37,7 @@ describe("classify() — GATE 2.5(c): honeypot token", () => {
 
   beforeAll(async () => {
     anvil = await startAnvilFork(8555);
-  }, 30_000);
+  }, 60_000);
 
   afterAll(() => {
     anvil?.stop();
@@ -64,7 +64,7 @@ describe("classify() — GATE 2.5(c): honeypot token", () => {
       parseUnits("1000000", 18),
     );
 
-    const { pool, feeTier } = await createAndSeedPool({
+    const { pool } = await createAndSeedPool({
       rpcUrl: anvil.rpcUrl,
       publicClient: publicClient as any,
       walletClient,
@@ -90,9 +90,9 @@ describe("classify() — GATE 2.5(c): honeypot token", () => {
       client: publicClient,
       token: mockToken,
       usdc: USDC,
-      pool,
+      factory: FACTORY,
       quoterV2: QUOTER_V2,
-      poolFee: feeTier,
+      connectors: [],
     });
 
     expect(result.tier).toBe("blocked");

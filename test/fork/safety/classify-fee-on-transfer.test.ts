@@ -27,7 +27,7 @@ describe("classify() — GATE 2.5(b): fee-on-transfer token", () => {
 
   beforeAll(async () => {
     anvil = await startAnvilFork(8554);
-  }, 30_000);
+  }, 60_000);
 
   afterAll(() => {
     anvil?.stop();
@@ -60,7 +60,7 @@ describe("classify() — GATE 2.5(b): fee-on-transfer token", () => {
       feeSink,
     );
 
-    const { pool, feeTier } = await createAndSeedPool({
+    await createAndSeedPool({
       rpcUrl: anvil.rpcUrl,
       publicClient: publicClient as any,
       walletClient,
@@ -75,9 +75,9 @@ describe("classify() — GATE 2.5(b): fee-on-transfer token", () => {
       client: publicClient,
       token: mockToken,
       usdc: USDC,
-      pool,
+      factory: FACTORY,
       quoterV2: QUOTER_V2,
-      poolFee: feeTier,
+      connectors: [],
     });
 
     expect(result.tier).not.toBe("blocked");

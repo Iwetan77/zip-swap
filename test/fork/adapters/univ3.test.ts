@@ -79,7 +79,7 @@ describe("UniV3Adapter fork verification (WMON -> USDC)", () => {
 
   beforeAll(async () => {
     anvil = await startAnvilFork(8552);
-  }, 30_000);
+  }, 60_000);
 
   afterAll(() => {
     anvil?.stop();
@@ -164,5 +164,5 @@ describe("UniV3Adapter fork verification (WMON -> USDC)", () => {
     const diffBps = (diff * 10_000n) / quote!.expectedOut;
 
     expect(diffBps).toBeLessThanOrEqual(10n); // within 0.1% (10bps)
-  }, 30_000);
+  }, 60_000);
 });
