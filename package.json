@@ -20,7 +20,7 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "zip-swap": "./dist/cli/zip-swap.js"
+    "zip-swap": "dist/cli/zip-swap.js"
   },
   "files": [
     "dist"
