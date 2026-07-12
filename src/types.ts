@@ -15,6 +15,7 @@ export interface RouteHop {
   pool: Address;
   tokenIn: Address;
   tokenOut: Address;
+  poolMeta?: Record<string, unknown>;
 }
 
 export interface Route {

@@ -8,7 +8,13 @@ function isSameAddress(a: Address, b: Address): boolean {
 }
 
 function toHop(quote: AdapterQuote): RouteHop {
-  return { venue: quote.venue, pool: quote.pool, tokenIn: quote.tokenIn, tokenOut: quote.tokenOut };
+  return {
+    venue: quote.venue,
+    pool: quote.pool,
+    tokenIn: quote.tokenIn,
+    tokenOut: quote.tokenOut,
+    ...(quote.poolMeta ? { poolMeta: quote.poolMeta } : {}),
+  };
 }
 
 function directToRoute(quote: AdapterQuote): Route {
